@@ -1,17 +1,21 @@
 import os
-from crewai import Agent, Task, Crew, Process
-from langchain_google_genai import ChatGoogleGenerativeAI
+import litellm  # Import litellm
 from dotenv import load_dotenv
-
+from crewai import Agent, Task, Crew, Process
+from crewai import LLM
 load_dotenv()
-
-# Initialize the LLM
-llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
-    verbose=True,
-    temperature=0.5,
-    google_api_key=os.getenv("GOOGLE_API_KEY")
+default_llm_config = LLM(
+    model="gemini/gemini-1.5-flash",   
+    api_key=os.getenv("GOOGLE_API_KEY"),  
+    temperature=0.7
 )
+# --- MANUAL API KEY OVERRIDE ---
+# This forces litellm to use your Google API key, fixing the key=None bug.
+litellm.api_key = os.getenv("GOOGLE_API_KEY")
+
+# ------------------------------------
+
+# --- AGENT DEFINITIONS (No LLM specified) ---
 
 # 1. Career Path Agent
 career_path_agent = Agent(
@@ -23,8 +27,9 @@ career_path_agent = Agent(
         "Your goal is to help users discover career paths that align with their passions and skills."
     ),
     verbose=True,
-    llm=llm,
+    llm=default_llm_config,
     allow_delegation=False,
+
 )
 
 # 2. Skill Gap Agent
@@ -37,8 +42,8 @@ skill_gap_agent = Agent(
         "Your analysis is data-driven and precise."
     ),
     verbose=True,
-    llm=llm,
-    allow_delegation=True,
+    llm=default_llm_config,
+    allow_delegation=False,
 )
 
 # 3. Learning Advisor Agent
@@ -51,7 +56,7 @@ learning_advisor_agent = Agent(
         "You focus on practical, high-quality recommendations."
     ),
     verbose=True,
-    llm=llm,
+    llm=default_llm_config,
     allow_delegation=False,
 )
 
@@ -65,11 +70,12 @@ resume_coach_agent = Agent(
         "Your advice is practical, direct, and aimed at getting interviews."
     ),
     verbose=True,
-    llm=llm,
+    llm=default_llm_config,
     allow_delegation=False,
 )
 
-# Define Tasks
+# --- TASK DEFINITIONS ---
+
 # Task for Career Path Agent
 career_path_task = Task(
     description=(
@@ -89,7 +95,7 @@ skill_gap_task = Task(
     ),
     expected_output="A detailed analysis for each career path, listing required skills and explicitly highlighting the user's skill gaps.",
     agent=skill_gap_agent,
-    context=[career_path_task] # This task depends on the output of the career_path_task
+    context=[career_path_task]
 )
 
 # Task for Learning Advisor Agent
@@ -117,18 +123,20 @@ resume_coach_task = Task(
     context=[career_path_task, skill_gap_task]
 )
 
-# Define the function to create and run the crew
+# --- CREW DEFINITION ---
+
+# Create the crew
+career_crew = Crew(
+    agents=[career_path_agent, skill_gap_agent, learning_advisor_agent, resume_coach_agent],
+    tasks=[career_path_task, skill_gap_task, learning_advisor_task, resume_coach_task],
+    process=Process.sequential,
+    memory=True,
+    cache=True,
+    max_rpm=100,
+    verbose=True
+)
+
 def create_career_advisor_crew(user_profile):
-    """Creates and kicks off the career advisor crew."""
-    career_crew = Crew(
-        agents=[career_path_agent, skill_gap_agent, learning_advisor_agent, resume_coach_agent],
-        tasks=[career_path_task, skill_gap_task, learning_advisor_task, resume_coach_task],
-        process=Process.sequential,
-        memory=True,
-        cache=True,
-        max_rpm=100,
-        verbose=2
-    )
-    
+    """Kicks off the career advisor crew for a given user profile."""
     result = career_crew.kickoff(inputs={'user_profile': user_profile})
     return result
