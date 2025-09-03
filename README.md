@@ -36,7 +36,7 @@ Follow these steps to run the project locally.
 ### 1. Clone the Repository
 
 ```bash
-git clone [https://github.com/YOUR_USERNAME/ai-career-advisor.git](https://github.com/YOUR_USERNAME/ai-career-advisor.git)
+git clone [https://github.com/Bhudev-Berwal/ai-career-advisor.git](https://github.com/Bhudev-Berwal/ai-career-advisor.git)
 cd ai-career-advisor
 ```
 
